@@ -1,0 +1,12 @@
+{
+  "listen_host": "127.0.0.1",
+  "listen_port": 4610,
+  "upstream_base_url": "https://api.openai.com",
+  "request_body_limit_bytes": 10485760,
+  "endpoints": ["/responses", "/chat/completions", "/v1/responses", "/v1/chat/completions"],
+  "reasoning_equals": [516],
+  "non_stream_status_code": 502,
+  "stream_action": "disconnect",
+  "log_match": true,
+  "health_path": "/__codex_retry_gateway/health"
+}
