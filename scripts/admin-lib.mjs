@@ -165,7 +165,7 @@ export async function setCodexProviderBaseUrl({ codexConfigPath, providerName, n
   await writeUtf8File(codexConfigPath, updatedContent);
 }
 
-export function normalizeIntArray(values, fallback = [516]) {
+export function normalizeIntArray(values, fallback = [516, 1034, 1552]) {
   const source = values === undefined || values === null ? fallback : values;
   const queue = Array.isArray(source) ? source.flat(Infinity) : [source];
   const normalized = queue
@@ -413,7 +413,13 @@ export async function installForCurrentProvider({
         ? 10485760
         : Number.parseInt(`${existingGatewayConfig.request_body_limit_bytes}`, 10),
     endpoints: mergedEndpoints,
-    reasoning_equals: normalizeIntArray(existingGatewayConfig?.reasoning_equals, [516]),
+    reasoning_equals: normalizeIntArray(existingGatewayConfig?.reasoning_equals, [516, 1034, 1552]),
+    intercept_streaming:
+      existingGatewayConfig?.intercept_streaming === undefined ? true : Boolean(existingGatewayConfig.intercept_streaming),
+    intercept_non_streaming:
+      existingGatewayConfig?.intercept_non_streaming === undefined
+        ? true
+        : Boolean(existingGatewayConfig.intercept_non_streaming),
     non_stream_status_code:
       existingGatewayConfig?.non_stream_status_code === undefined || existingGatewayConfig?.non_stream_status_code === null
         ? 502
@@ -559,6 +565,16 @@ export async function launchUi({
       existingGatewayConfig.listen_port = listenPort;
       if (!existingGatewayConfig.health_path) {
         existingGatewayConfig.health_path = DEFAULT_HEALTH_PATH;
+      }
+      if (existingGatewayConfig.intercept_streaming === undefined) {
+        existingGatewayConfig.intercept_streaming = true;
+      }
+      if (existingGatewayConfig.intercept_non_streaming === undefined) {
+        existingGatewayConfig.intercept_non_streaming = true;
+      }
+      if (!existingGatewayConfig.intercept_streaming && !existingGatewayConfig.intercept_non_streaming) {
+        existingGatewayConfig.intercept_streaming = true;
+        existingGatewayConfig.intercept_non_streaming = true;
       }
       await writeJsonFile(paths.configPath, existingGatewayConfig);
 

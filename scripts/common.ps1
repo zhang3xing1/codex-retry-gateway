@@ -221,7 +221,7 @@ function Wait-GatewayHealth {
 function Normalize-IntArray {
   param(
     $Values,
-    [int[]]$Default = @(516)
+    [int[]]$Default = @(516, 1034, 1552)
   )
 
   if ($null -eq $Values) {

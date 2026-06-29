@@ -71,6 +71,16 @@ if (-not $canReuseExistingInstall) {
     if ([string]::IsNullOrWhiteSpace([string]$existingGatewayConfig.health_path)) {
       $existingGatewayConfig.health_path = "/__codex_retry_gateway/health"
     }
+    if ($null -eq $existingGatewayConfig.PSObject.Properties["intercept_streaming"]) {
+      $existingGatewayConfig | Add-Member -NotePropertyName "intercept_streaming" -NotePropertyValue $true
+    }
+    if ($null -eq $existingGatewayConfig.PSObject.Properties["intercept_non_streaming"]) {
+      $existingGatewayConfig | Add-Member -NotePropertyName "intercept_non_streaming" -NotePropertyValue $true
+    }
+    if ((-not [bool]$existingGatewayConfig.intercept_streaming) -and (-not [bool]$existingGatewayConfig.intercept_non_streaming)) {
+      $existingGatewayConfig.intercept_streaming = $true
+      $existingGatewayConfig.intercept_non_streaming = $true
+    }
     Write-JsonFile -Path $paths.ConfigPath -Value $existingGatewayConfig
 
     if ($currentBaseUrl -ne $requestedGatewayBaseUrl) {

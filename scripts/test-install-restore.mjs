@@ -10,6 +10,7 @@ import { spawn } from "node:child_process";
 
 const scriptsRoot = import.meta.dirname;
 const installScript = path.join(scriptsRoot, "install-for-current-provider.ps1");
+const launchUiScript = path.join(scriptsRoot, "launch-ui.ps1");
 const restoreScript = path.join(scriptsRoot, "restore-codex-config.ps1");
 
 function assert(condition, message) {
@@ -149,6 +150,42 @@ async function run() {
       gatewayConfig.upstream_base_url === `http://127.0.0.1:${upstreamPort}`,
       "Gateway config did not preserve original upstream_base_url",
     );
+    assert(
+      JSON.stringify(gatewayConfig.reasoning_equals) === JSON.stringify([516, 1034, 1552]),
+      "Gateway config default reasoning_equals did not include 516,1034,1552",
+    );
+    assert(gatewayConfig.intercept_streaming === true, "Gateway config default intercept_streaming should be true");
+    assert(
+      gatewayConfig.intercept_non_streaming === true,
+      "Gateway config default intercept_non_streaming should be true",
+    );
+    delete gatewayConfig.intercept_streaming;
+    delete gatewayConfig.intercept_non_streaming;
+    await writeFile(
+      path.join(stateRoot, "config", "config.json"),
+      `${JSON.stringify(gatewayConfig, null, 2)}\n`,
+      "utf8",
+    );
+    await runPowerShellScript(launchUiScript, [
+      "-CodexConfigPath",
+      codexConfigPath,
+      "-StateRoot",
+      stateRoot,
+      "-ListenPort",
+      String(gatewayPort),
+      "-NoOpen",
+    ]);
+    const migratedGatewayConfig = JSON.parse(
+      await readFile(path.join(stateRoot, "config", "config.json"), "utf8"),
+    );
+    assert(
+      migratedGatewayConfig.intercept_streaming === true,
+      "Launch UI reuse did not migrate missing intercept_streaming",
+    );
+    assert(
+      migratedGatewayConfig.intercept_non_streaming === true,
+      "Launch UI reuse did not migrate missing intercept_non_streaming",
+    );
     assert(Array.isArray(gatewayConfig.endpoints), "Gateway config endpoints must be an array");
     assert(
       gatewayConfig.endpoints.includes("/responses") &&
@@ -169,17 +206,37 @@ async function run() {
     const uiHtml = await uiResponse.text();
     assert(uiResponse.status === 200, `Management UI failed to load: ${uiResponse.status}`);
     assert(uiHtml.includes("Codex Retry Gateway"), "Management UI HTML did not include expected title");
-    assert(uiHtml.includes("516 命中次数"), "Management UI HTML did not include 516 match stats");
-    assert(uiHtml.includes("516 占比"), "Management UI HTML did not include 516 ratio stats");
+    assert(
+      uiHtml.includes("模型家族一致性（被动探针）"),
+      "Management UI HTML did not include passive probe model consistency title",
+    );
+    assert(!uiHtml.includes("516 命中次数"), "Management UI HTML should not include removed 516 match stats");
+    assert(!uiHtml.includes("516 占比"), "Management UI HTML should not include removed 516 ratio stats");
+    assert(uiHtml.includes("当前规则命中总数"), "Management UI HTML did not include current rule match stats");
+    assert(uiHtml.includes("实际拦截总数"), "Management UI HTML did not include actual block total stats");
+    assert(uiHtml.includes("实际拦截占比"), "Management UI HTML did not include actual block ratio stats");
     assert(uiHtml.includes("实时日志"), "Management UI HTML did not include live log panel");
+    assert(uiHtml.includes("主动探针"), "Management UI HTML did not include active probe panel");
 
     const statusResponse = await fetch(`http://127.0.0.1:${gatewayPort}/__codex_retry_gateway/api/status`);
     const statusPayload = await statusResponse.json();
     assert(statusResponse.status === 200, `Status API failed: ${statusResponse.status}`);
     assert(statusPayload.config?.upstream_base_url === `http://127.0.0.1:${upstreamPort}`, "Status API did not expose config");
+    assert(
+      JSON.stringify(statusPayload.config?.reasoning_equals) === JSON.stringify([516, 1034, 1552]),
+      "Status API did not expose default reasoning_equals",
+    );
+    assert(statusPayload.config?.intercept_streaming === true, "Status API did not expose intercept_streaming default");
+    assert(
+      statusPayload.config?.intercept_non_streaming === true,
+      "Status API did not expose intercept_non_streaming default",
+    );
     assert(statusPayload.state?.original_base_url === `http://127.0.0.1:${upstreamPort}`, "Status API did not expose install state");
     assert(statusPayload.metrics?.inspected_response_count === 0, "Status API did not expose initial inspected count");
     assert(statusPayload.metrics?.reasoning_516_count === 0, "Status API did not expose initial 516 count");
+    assert(statusPayload.active_probe, "Status API did not expose active_probe");
+    assert(statusPayload.active_probe.enabled === false, "Initial active_probe.enabled should be false");
+    assert(Array.isArray(statusPayload.active_probe.recent_samples), "Initial active_probe.recent_samples should be an array");
 
     const normalResponse = await fetch(`http://127.0.0.1:${gatewayPort}/responses`, {
       method: "POST",
@@ -200,6 +257,14 @@ async function run() {
     assert(metricsStatusResponse.status === 200, `Status API failed after traffic: ${metricsStatusResponse.status}`);
     assert(metricsStatusPayload.metrics?.inspected_response_count === 2, "Status API inspected count was not updated");
     assert(metricsStatusPayload.metrics?.matched_response_count === 1, "Status API matched count was not updated");
+    assert(
+      metricsStatusPayload.metrics?.matched_non_streaming_count === 1,
+      "Status API non-stream matched count was not updated",
+    );
+    assert(
+      metricsStatusPayload.metrics?.blocked_non_streaming_count === 1,
+      "Status API non-stream blocked count was not updated",
+    );
     assert(metricsStatusPayload.metrics?.reasoning_516_count === 1, "Status API 516 count was not updated");
     assert(metricsStatusPayload.metrics?.reasoning_516_ratio === 0.5, "Status API 516 ratio was not updated");
 
@@ -222,13 +287,25 @@ async function run() {
       body: JSON.stringify({
         reasoning_equals: [1024],
         endpoints: ["/responses", "/v1/responses"],
+        intercept_streaming: true,
+        intercept_non_streaming: false,
         non_stream_status_code: 503,
         log_match: false,
+        active_probe: {
+          enabled: true,
+          interval_ms: 11 * 60 * 1000,
+          target_families: ["gpt-5.4"],
+        },
       }),
     });
     const saveConfigPayload = await saveConfigResponse.json();
     assert(saveConfigResponse.status === 200, `Save config API failed: ${saveConfigResponse.status}`);
     assert(saveConfigPayload.config?.non_stream_status_code === 503, "Save config API did not return updated config");
+    assert(saveConfigPayload.config?.intercept_streaming === true, "Save config API did not return intercept_streaming");
+    assert(
+      saveConfigPayload.config?.intercept_non_streaming === false,
+      "Save config API did not return intercept_non_streaming",
+    );
 
     const updatedGatewayConfig = JSON.parse(
       await readFile(path.join(stateRoot, "config", "config.json"), "utf8"),
@@ -236,6 +313,57 @@ async function run() {
     assert(
       JSON.stringify(updatedGatewayConfig.reasoning_equals) === JSON.stringify([1024]),
       "Saved config file did not persist reasoning_equals",
+    );
+    assert(updatedGatewayConfig.intercept_streaming === true, "Saved config file did not persist intercept_streaming");
+    assert(
+      updatedGatewayConfig.intercept_non_streaming === false,
+      "Saved config file did not persist intercept_non_streaming",
+    );
+    assert(
+      updatedGatewayConfig.active_probe?.enabled === true,
+      "Saved config file did not persist active_probe.enabled",
+    );
+    assert(
+      updatedGatewayConfig.active_probe?.interval_ms === 11 * 60 * 1000,
+      "Saved config file did not persist active_probe.interval_ms",
+    );
+    assert(
+      JSON.stringify(updatedGatewayConfig.active_probe?.target_families) === JSON.stringify(["gpt-5.4"]),
+      "Saved config file did not persist active_probe.target_families",
+    );
+    const invalidAutoProbeResponse = await fetch(`http://127.0.0.1:${gatewayPort}/__codex_retry_gateway/api/config`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        active_probe: {
+          enabled: true,
+          target_families: [],
+        },
+      }),
+    });
+    const invalidAutoProbePayload = await invalidAutoProbeResponse.json();
+    assert(
+      invalidAutoProbeResponse.status === 400,
+      `未选中模型时开启自动探测应失败: ${invalidAutoProbeResponse.status}`,
+    );
+    assert(
+      `${invalidAutoProbePayload?.error?.message || ""}`.includes("至少选择一个"),
+      "未选中模型时开启自动探测应返回目标模型校验错误",
+    );
+
+    const invalidInterceptResponse = await fetch(`http://127.0.0.1:${gatewayPort}/__codex_retry_gateway/api/config`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        intercept_streaming: false,
+        intercept_non_streaming: false,
+      }),
+    });
+    const invalidInterceptPayload = await invalidInterceptResponse.json();
+    assert(invalidInterceptResponse.status === 400, `双关拦截配置应失败: ${invalidInterceptResponse.status}`);
+    assert(
+      `${invalidInterceptPayload?.error?.message || ""}`.includes("流式与非流式至少选择一个"),
+      "双关拦截配置应返回拦截目标校验错误",
     );
 
     const incrementalLogsResponse = await fetch(
@@ -253,7 +381,7 @@ async function run() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ test_reasoning_tokens: 1024 }),
     });
-    assert(blockedAfterSave.status === 503, `Hot reloaded config did not take effect: ${blockedAfterSave.status}`);
+    assert(blockedAfterSave.status === 200, `仅流式模式下非流式命中应透传: ${blockedAfterSave.status}`);
 
     const restoreViaUiResponse = await fetch(`http://127.0.0.1:${gatewayPort}/__codex_retry_gateway/api/restore`, {
       method: "POST",

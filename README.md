@@ -1,15 +1,18 @@
 # Codex Retry Gateway
 
-tg群:https://t.me/AI_INPUT_IM
-
 一个不依赖 `cc-switch` 路由模式的独立本地网关。
+
+项目真源说明：
+
+- 如果你想看“这个项目当前代码到底负责什么、请求链路怎么走、统计口径怎么算、主动/被动探针边界在哪里”，优先看：
+  - `docs/superpowers/specs/2026-06-28-project-source-of-truth.md`
 
 目标：
 
 - 保持 Codex 继续使用现有 `auth.json`
 - 只把 `config.toml` 的当前 provider `base_url` 改成本地网关
-- 非流式命中 `reasoning_tokens = 516` 时返回 `502`
-- 流式命中时默认先缓存并判断；一旦命中 `516`，统一返回 `502`
+- 非流式命中默认集合 `reasoning_tokens = 516 / 1034 / 1552` 时返回 `502`
+- 流式命中时默认先缓存并判断；一旦命中默认集合 `516 / 1034 / 1552`，统一返回 `502`
 - 默认同时拦截 root 路径和 `/v1` 路径：
   - `/responses`
   - `/chat/completions`
@@ -157,9 +160,28 @@ http://127.0.0.1:4610/__codex_retry_gateway/ui
 - 看本次 gateway 启动以来的实时统计
   - 代理请求总数
   - 被检查响应总数
-  - `516` 命中次数
-  - `516` 占比
+  - 当前规则命中总数
+  - 实际拦截总数
+  - 实际拦截占比
+  - 流式 / 非流式规则命中次数
+  - 流式 / 非流式实际拦截次数
+- 看模型家族一致性统计
+  - 本地请求模型占比
+  - 上游声明模型占比
+  - 流式声明模型占比
+  - 声明一致率
+  - `400K` 家族异常次数
+  - 单请求模型漂移次数
+  - 疑似请求内重建/重试次数
+- 看主动探针统计
+  - 最近目标模型
+  - 通过次数
+  - warning 次数
+  - 违约次数
+  - transport error 次数
+  - 最近主动探针样本与日志证据
 - 改 `reasoning_equals`
+- 改流式 / 非流式拦截目标
 - 改 `endpoints`
 - 改 `non_stream_status_code`
 - 开关 `log_match`
@@ -173,7 +195,18 @@ http://127.0.0.1:4610/__codex_retry_gateway/ui
 - 日常恢复优先用 UI；`restore-codex-config.ps1` 作为脚本级应急回滚入口保留
 - UI 恢复不会再额外拉起恢复子进程，而是由当前 gateway 直接完成恢复并退出
 - 统计口径默认按“本次 gateway 启动以来”累计
-- `516` 占比 = `reasoning_tokens = 516` 的响应次数 / 被检查响应总数
+- 当前规则命中总数表示命中 `reasoning_equals` 的次数，不等于实际拦截次数
+- 实际拦截占比 = 实际拦截总数 / 被检查响应总数
+- 关闭某一类拦截后，该类命中仍会继续计入规则命中与模型一致性观测，但不会计入实际拦截
+- 模型家族一致性面板里的“上游模型”是上游自报
+- “声明一致”不等于已证明真实运行一致
+- “400K 家族异常”只表示行为上疑似不符合 `1M` 家族
+- “单请求模型漂移”和“疑似请求内重建/重试”都按高风险展示
+- “疑似请求内重建/重试”仅基于响应信号推断，不能直接确认缓存重建
+- 主动探针默认关闭，并且与普通代理请求统计完全隔离
+- 主动探针当前只做“声明契约证伪”，不做真实底层模型归因
+- 长上下文与 `gpt-5.5` 图片输入属于硬契约探针，可产出 `violation`
+- 响应结构、身份一致性、训练截止日期 / 知识表现属于辅助探针，默认只产出 `warning`
 
 ## 如何调整拦截条件
 
@@ -187,17 +220,39 @@ macOS / Linux: ~/.codex-retry-gateway/config/config.json
 常用字段：
 
 - `reasoning_equals`
-  - 例如 `[516]`
+  - 默认 `[516, 1034, 1552]`
+- `intercept_streaming`
+  - 默认 `true`
+  - 控制流式响应命中 `reasoning_equals` 后是否真正拦截
+- `intercept_non_streaming`
+  - 默认 `true`
+  - 控制非流式响应命中 `reasoning_equals` 后是否真正拦截
+  - `intercept_streaming` 与 `intercept_non_streaming` 不能同时为 `false`
 - `endpoints`
   - 默认包含 root 与 `/v1` 两套路径
 - `non_stream_status_code`
   - 默认 `502`
 - `stream_action`
   - 默认 `strict_502`
-  - `strict_502`：先缓存整个流，命中 `516` 时统一返回 `502`
+  - `strict_502`：先缓存整个流，命中 `reasoning_equals` 里的值时统一返回 `502`
   - `disconnect`：兼容旧行为；若命中发生在已透传 chunk 之后，则直接断开连接
 - `log_match`
   - 是否记录命中日志
+- `active_probe.enabled`
+  - 是否开启主动探针
+- `active_probe.endpoint_candidates`
+  - 主动探针优先使用的上游路径
+- `active_probe.long_context`
+  - 长上下文硬契约探针配置
+  - `target_input_tokens` 默认 `460000`，探针会按真实 `usage.input_tokens` 口径校准预算并落证据
+- `active_probe.image_input`
+  - `gpt-5.5` 图片输入硬契约探针配置
+- `active_probe.response_structure`
+  - 响应结构辅助探针配置
+- `active_probe.identity_consistency`
+  - 身份一致性辅助探针配置
+- `active_probe.knowledge_cutoff`
+  - 训练截止日期 / 知识表现辅助探针配置
 
 改完后重启：
 
@@ -247,7 +302,7 @@ macOS / Linux: ~/.codex-retry-gateway
   - 验证安装、透传、UI 页面、热更新配置、实时日志、516 统计、恢复闭环
 - `test-launch-ui.ps1`
   - 已通过
-  - 验证首次一键启动自动安装、再次启动自动复用、UI 可访问、默认 516 拦截仍生效
+  - 验证首次一键启动自动安装、再次启动自动复用、UI 可访问、默认 `516/1034/1552` 拦截仍生效
 - `test-launch-ui-unix.ps1`
   - 已通过
   - 在当前 Windows 主机的 Bash 环境里验证 Unix `.sh` 入口能完成启动、透传、恢复闭环

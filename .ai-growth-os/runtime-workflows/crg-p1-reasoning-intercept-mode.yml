@@ -1,0 +1,208 @@
+schema_version: agos.runtime-workflow.v1
+task_id: crg-p1-reasoning-intercept-mode
+project_root: C:\Users\dashuai\.config\superpowers\worktrees\codex-retry-gateway-git\codex-model-consistency-clean
+task_scope_boundary: gateway-config-ui-tests-and-local-application-only
+task_current_state: verified
+task_owner: main-thread
+session_plan_ref: docs/plans/sessions/crg-p1-reasoning-intercept-mode.md
+approved_decision_ref: session-plan:crg-p1-reasoning-intercept-mode#decision
+project_docs:
+  agents: C:\Users\dashuai\Documents\Playground\AGENTS.md
+  build: C:\Users\dashuai\.config\superpowers\worktrees\codex-retry-gateway-git\codex-model-consistency-clean\build.md
+  err: C:\Users\dashuai\.config\superpowers\worktrees\codex-retry-gateway-git\codex-model-consistency-clean\err.md
+selected_business_path: knowledge-vault-governance
+task_observer_roles:
+  - knowledge-retriever
+  - build-verifier
+task_claimed_files:
+  - C:\Users\dashuai\.config\superpowers\worktrees\codex-retry-gateway-git\codex-model-consistency-clean\gateway.mjs
+  - C:\Users\dashuai\.config\superpowers\worktrees\codex-retry-gateway-git\codex-model-consistency-clean\config.example.json
+  - C:\Users\dashuai\.config\superpowers\worktrees\codex-retry-gateway-git\codex-model-consistency-clean\scripts\test-gateway-e2e.mjs
+  - C:\Users\dashuai\.config\superpowers\worktrees\codex-retry-gateway-git\codex-model-consistency-clean\scripts\test-install-restore.mjs
+  - C:\Users\dashuai\.config\superpowers\worktrees\codex-retry-gateway-git\codex-model-consistency-clean\err.md
+  - C:\Users\dashuai\.config\superpowers\worktrees\codex-retry-gateway-git\codex-model-consistency-clean\docs\superpowers\specs\2026-06-29-reasoning-intercept-mode-design.md
+  - C:\Users\dashuai\.config\superpowers\worktrees\codex-retry-gateway-git\codex-model-consistency-clean\docs\plans\sessions\crg-p1-reasoning-intercept-mode.md
+  - C:\Users\dashuai\.config\superpowers\worktrees\codex-retry-gateway-git\codex-model-consistency-clean\docs\plans\2026-06-29-reasoning-intercept-mode-implementation.md
+task_last_known_branch_or_worktree: codex/model-consistency-clean
+task_takeover_preconditions:
+  - verify-git-snapshot-governance checkpoint recorded for current batch
+  - claimed_files reviewed before takeover write
+  - takeover snapshot ref present before cross-thread continuation
+task_follow_up_required: git-snapshot-or-owner-review
+task_validation_attribution: current-task-verified-local
+task_closeout_ref: docs/plans/sessions/crg-p1-reasoning-intercept-mode.md#closeout
+workflow_lookup_mode: dynamic-generated
+static_workflow_refs:
+dynamic_workflow_gap_summary: external-project-node-gateway-development-path-not-yet-covered-by-agos-registry
+workflow_nodes:
+  - startup
+  - knowledge-prep
+  - plan
+  - execute
+  - verify
+  - distill
+  - sync
+subagent_roles:
+  - rule-auditor
+  - knowledge-retriever
+  - build-verifier
+skill_tree_nodes:
+  - global-maintenance
+  - knowledge-vault
+  - verification
+  - self-distillation
+tool_profiles:
+  - local-gateway
+  - knowledge-graph
+required_tools:
+  - GBrain
+  - apply_patch
+  - shell
+code_authoring_rules:
+  - rules/domain/agent-generated-code.md
+  - rules/quality/comments.md
+  - rules/quality/complexity-file-size.md
+  - rules/quality/testing.md
+code_authoring_gates:
+  - non-obvious logic must have boundary comments or an explicit trivial-code no-comment decision
+  - trivial-code no-comment decision is allowed only for direct pass-through changes
+  - ownership, dependency, risk, and verification boundaries must stay explicit for gateway interception paths
+review_gates:
+  - verify-review-gate.ps1 reserved for later GitHub-governed review, not required in this local execution batch
+subagent_dispatch_guard:
+  - verify-subagent-dispatch.ps1 not used because this task stays single-threaded on shared gateway files
+test_governance_gates:
+  - generate-test-governance-matrix.ps1 conceptual gate: changed surface is gateway config, interception logic, UI wiring, and e2e regression
+task_loop_policy_gate:
+  - verify-task-loop-policy.ps1 -LoopStatePath <not-created> -ClarifyStatus satisfied -ClarifyOpenQuestions 0 -ClarifyRequired yes -ImplementationChecklistRef docs/plans/2026-06-29-reasoning-intercept-mode-implementation.md -ImplementationChecklistStatus active -ImplementationChecklistPendingCount 4 -ImplementationChecklistRequired yes -ConvergeStatus active -ConvergeDecision pending -ConvergeRequired yes -ContractFieldsAddedCount 0 -ContractChurnThreshold 3 -TerminalStatus non-terminal -ExecutableOptionCount 1 -OwnerApprovalState approved -OwnerApprovalRef session-plan:crg-p1-reasoning-intercept-mode#decision -OwnerIntentText user-approved-two-checkbox-intercept-design -SemanticProgressDelta planned -SuccessStateRef pending -SuccessSnapshotRef pending -SuccessSnapshotRequired yes -CorrectionFamily gateway-intercept-mode -CorrectionRepeatCount 0 -CorrectionRepeatThreshold 2 -CorrectionRecoverySnapshotRef pending -ExecutionState executing -CurrentGateStatus running -NextLegalGate execute -NextGateReadiness blocked-until-tests-pass -NextGatePreheatDetected no -WaitingMode none -SubagentStatus none -InterruptRequested no -CheckpointSatisfied yes -TakeoverState none -TakeoverSnapshotRef pending -ClaimedFiles gateway.mjs,config.example.json,scripts/test-gateway-e2e.mjs,scripts/test-install-restore.mjs,err.md -RepeatedFailureClass none -RepeatedFailureCount 0 -RepeatedFailureThreshold 3 -RepeatedFailureEscalationTarget static-analysis -TombstoneRecurrence no -ReportOnly
+misjudgment_recovery_gate:
+  - verify-misjudgment-recovery.ps1 -MisjudgmentStatePath <none> -ReportOnly
+long_task_states:
+  - intake
+  - executing
+  - waiting
+  - takeover
+  - frozen
+execution_windows:
+  - state=executing allowed_ops=read,edit,test,local-apply forbidden_ops=next-gate-preheat,interrupt-active-subagent,takeover-without-snapshot
+  - state=waiting allowed_ops=observe,report forbidden_ops=next-gate-preheat,interrupt-active-subagent,takeover-without-snapshot
+execution_ownership_contract:
+  - takeover_requires_snapshot=yes
+  - checkpoint_before_interrupt=yes
+  - claimed_file_alignment_required=yes
+project_state_gates:
+  - verify-project-state-contract.ps1 current task uses local-only closeout path for now
+  - verify-progress-delta.ps1 semantic progress must be code+test+local-apply, not docs-only
+  - verify-runtime-evidence-fuse.ps1 repeated evidence without code/test delta is not progress
+  - verify-task-loop-policy.ps1 -ClarifyStatus satisfied -ImplementationChecklistStatus active -ConvergeStatus active -ContractFieldsAddedCount 0 -TerminalStatus non-terminal -OwnerApprovalState approved -SemanticProgressDelta planned
+  - extract-misjudgment-signals.ps1 no-op unless broad hard-ban conclusion appears
+  - verify-misjudgment-recovery.ps1 -MisjudgmentStatePath <none> -ReportOnly
+  - verify-project-latest-consistency.ps1 not applicable because this project has no AGOS control tower
+model_drift_guards:
+  - mandatory-business-path-first
+  - rag-gap-not-silent
+  - verification-before-sync
+  - git-progress-checkpoint-before-drift
+errmd_correction_watchlist:
+  - 2026-06-28 主动探针图片输入误报 502/transport_error：不要回退到 SVG data URL
+  - 2026-06-28 正常拦截流式 516 会被误报成 single_request_rebuild_suspected：继续保护该回归
+  - 2026-06-28 声明一致率把 unknown 算进分母：不要再次打坏一致率口径
+  - 2026-06-29 高风险逻辑短清单：优先注意主动探针画像污染、模型一致性样本池口径、非流式命中收口
+git_progress_checkpoints:
+  - verify-git-snapshot-governance.ps1 -ProjectRoot C:\Users\dashuai\.config\superpowers\worktrees\codex-retry-gateway-git\codex-model-consistency-clean -Checkpoint -ReportOnly reason=startup-baseline
+  - verify-git-snapshot-governance.ps1 -ProjectRoot C:\Users\dashuai\.config\superpowers\worktrees\codex-retry-gateway-git\codex-model-consistency-clean -Checkpoint -ReportOnly reason=execute-batch
+  - verify-git-snapshot-governance.ps1 -ProjectRoot C:\Users\dashuai\.config\superpowers\worktrees\codex-retry-gateway-git\codex-model-consistency-clean -Checkpoint -ReportOnly reason=pre-verification
+  - verify-git-snapshot-governance.ps1 -ProjectRoot C:\Users\dashuai\.config\superpowers\worktrees\codex-retry-gateway-git\codex-model-consistency-clean -Checkpoint -ReportOnly reason=handoff-or-pause
+task_interruption_packets:
+  - invoke-agos-task-recovery.ps1 -Mode planned-pause -TakeoverSnapshotRef pending -ClaimedFiles gateway.mjs,config.example.json,scripts/test-gateway-e2e.mjs,scripts/test-install-restore.mjs
+  - invoke-agos-task-recovery.ps1 -Mode unexpected-interruption -TakeoverSnapshotRef pending -ClaimedFiles gateway.mjs,config.example.json,scripts/test-gateway-e2e.mjs,scripts/test-install-restore.mjs
+  - invoke-agos-task-recovery.ps1 -Mode resume -TakeoverSnapshotRef pending -ClaimedFiles gateway.mjs,config.example.json,scripts/test-gateway-e2e.mjs,scripts/test-install-restore.mjs
+  - invoke-agos-task-recovery.ps1 -Mode takeover -TakeoverSnapshotRef pending -ClaimedFiles gateway.mjs,config.example.json,scripts/test-gateway-e2e.mjs,scripts/test-install-restore.mjs
+verification_gates:
+  - node .\scripts\test-gateway-e2e.mjs
+  - node .\scripts\test-install-restore.mjs
+  - node --check .\gateway.mjs
+  - verify-git-snapshot-governance.ps1 must be rerun after verification before any completion claim
+stop_gates:
+  - intercept_streaming=false and intercept_non_streaming=false is forbidden
+  - matched_response_count must remain a rule-hit counter, not a blocked-only counter
+  - normal 516 strict interception must not reintroduce rebuild_suspected false positive
+  - active probe traffic must remain isolated from ordinary proxy metrics
+runtime_evidence_refs:
+  - docs/plans/sessions/crg-p1-reasoning-intercept-mode.md
+  - docs/plans/2026-06-29-reasoning-intercept-mode-implementation.md
+  - err.md#30
+  - local-gateway:http://127.0.0.1:4610/__codex_retry_gateway/ui
+  - verification:node .\scripts\test-gateway-e2e.mjs PASS
+  - verification:node .\scripts\test-install-restore.mjs PASS
+  - verification:node --check .\gateway.mjs PASS
+  - verification:git diff --check PASS_WITH_LINE_ENDING_WARNINGS
+  - historical-spec:docs/superpowers/specs/2026-06-29-reasoning-intercept-mode-design.md
+  - historical-checklist:docs/superpowers/specs/2026-06-29-high-risk-logic-checklist.md
+rollout_draft:
+  source_task: crg-p1-reasoning-intercept-mode
+  business_path: knowledge-vault-governance
+  closeout_ref: docs/plans/sessions/crg-p1-reasoning-intercept-mode.md#closeout
+  validation_attribution: current-task-verified-local
+  follow_up_required: git-snapshot-or-owner-review
+  workflow_lookup_mode: dynamic-generated
+  static_workflow_refs:
+  dynamic_workflow_gap_summary: external-project-node-gateway-development-path-not-yet-covered-by-agos-registry
+  workflow_nodes:
+    - startup
+    - knowledge-prep
+    - plan
+    - execute
+    - verify
+    - distill
+    - sync
+  skill_tree_nodes:
+    - global-maintenance
+    - knowledge-vault
+    - verification
+    - self-distillation
+  subagent_roles:
+    - rule-auditor
+    - knowledge-retriever
+    - build-verifier
+  tool_profiles:
+    - local-gateway
+    - knowledge-graph
+  required_tools:
+    - GBrain
+    - apply_patch
+    - shell
+  review_gates:
+    - local-only-batch-no-pr-yet
+  subagent_dispatch_guard:
+    - single-threaded-shared-file-execution
+  test_governance_gates:
+    - e2e-plus-install-restore-plus-syntax-check
+  task_loop_policy_gate:
+    - clarify-satisfied-checklist-active-converge-active
+  project_state_gates:
+    - semantic-progress-must-include-code-and-tests
+  failure_modes:
+    - matched-vs-blocked-counter-confusion
+    - non-stream-model-insights-regression
+    - ui-double-off-invalid-state
+    - reuse-install-config-migration-gap
+  recovery_steps:
+    - restore checkpoint and re-run focused tests
+    - compare against spec and high-risk checklist before retry
+  git_progress_checkpoints:
+    - startup-baseline
+    - execute-batch
+    - pre-verification
+    - handoff-or-pause
+  task_interruption_packets:
+    - planned-pause
+    - unexpected-interruption
+    - resume
+    - takeover
+  verification_gates:
+    - node .\scripts\test-gateway-e2e.mjs
+    - node .\scripts\test-install-restore.mjs
+    - node --check .\gateway.mjs
+  upgrade_signals:
+    - potential-agos-business-path-gap-for-node-gateway-development
